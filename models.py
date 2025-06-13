@@ -35,9 +35,9 @@ class Book(Base):
     created_at = Column(DateTime, default=func.now())
     created_by = Column(Integer, nullable=True)
     
-    chapters = relationship("Chapter", back_populates="book", cascade="all, delete-orphan")
-    units = relationship("Unit", back_populates="book", cascade="all, delete-orphan")
-    vocas = relationship("Voca", back_populates="book", cascade="all, delete-orphan")
+    chapters = relationship("Chapter", back_populates="book", cascade="all, delete-orphan", order_by="Chapter.idx")
+    units = relationship("Unit", back_populates="book", cascade="all, delete-orphan", order_by="Unit.idx")
+    vocas = relationship("Voca", back_populates="book", cascade="all, delete-orphan", order_by="Voca.idx")
 
 class Chapter(Base):
     __tablename__ = "pt_chapter"
@@ -81,6 +81,7 @@ class Voca(Base):
     vc_word = Column(String(50), nullable=False)
     vt_idx = Column(Integer, ForeignKey("pt_voca_type.idx"), nullable=False)
     vc_type = Column(Integer, nullable=False)
+    vc_order = Column(Integer, nullable=False)
     vc_root = Column(String(4000), nullable=True)
     vc_unikey = Column(String(4000), nullable=True)
     vc_mp3_link = Column(String(500), nullable=True)
@@ -117,8 +118,8 @@ class VocaMeaning(Base):
     created_by = Column(Integer, nullable=True)
 
     voca = relationship("Voca", back_populates="meanings")
-    examples = relationship("MeaningExample", back_populates="meaning", cascade="all, delete-orphan")
-    snyants = relationship("MeaningSnyant", back_populates="meaning", cascade="all, delete-orphan")
+    examples = relationship("MeaningExample", back_populates="meaning", cascade="all, delete-orphan", order_by="MeaningExample.idx")
+    snyants = relationship("MeaningSnyant", back_populates="meaning", cascade="all, delete-orphan", order_by="MeaningSnyant.idx")
 
 class MeaningExample(Base):
     __tablename__ = "pt_meaning_example"
@@ -136,10 +137,11 @@ class MeaningSnyant(Base):
     __tablename__ = "pt_meaning_snyant"
     idx = Column(Integer, primary_key=True, index=True)
     snyant_type = Column(Integer, nullable=False)
-    snyant_word = Column(String(50), nullable=False)
+    snyant_word = Column(String(500), nullable=False)
     meaning_idx = Column(Integer, ForeignKey("pt_voca_meaning.idx"), nullable=False)
     voca_idx = Column(Integer, ForeignKey("pt_voca.idx"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     created_by = Column(Integer, nullable=True)
+    snyant_meaning = Column(String(500), nullable=False)
     
     meaning = relationship("VocaMeaning", back_populates="snyants")

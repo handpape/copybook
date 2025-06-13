@@ -119,6 +119,7 @@ class VocaBase(BaseModel):
     vc_root: Optional[str] = None
     vc_unikey: Optional[str] = None
     vc_mp3_link: Optional[str] = None
+    vc_order: int
     un_idx: int
     book_idx: int
     created_by: Optional[int] = None
@@ -219,6 +220,7 @@ class MeaningSnyantBase(BaseModel):
     meaning_idx: int
     voca_idx: int
     created_by: Optional[int] = None
+    snyant_meaning: str
 
 class MeaningSnyantCreate(MeaningSnyantBase):
     pass

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import uuid # Import the uuid module
 
 # from . import models, schemas, database
 import models
@@ -14,6 +15,11 @@ app = FastAPI(
     title="계층 구조 레코드 복사 API",
     description="FastAPI와 MySQL을 이용한 RESTful API 서버"
 )
+
+# --- Hello World 엔드포인트 ---
+@app.get("/hello", summary="Hello World")
+async def read_hello():
+    return {"message": "world"}
 
 # --- 기본 CRUD 엔드포인트 (테스트용) ---
 
@@ -88,7 +94,7 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
 
         # 2. 교재(Book) 레코드 복사
         new_book = models.Book(
-            book_title=f"{original_book.book_title}_복사",
+            book_title=f"{original_book.book_title} (개정)",
             book_isbn=original_book.book_isbn,
             book_imagelink=original_book.book_imagelink,
             cate_lvl1_idx=original_book.cate_lvl1_idx,
@@ -97,6 +103,7 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
         )
         db.add(new_book)
         db.flush()  # DB에 임시 저장하여 새 book의 idx를 할당받음
+        print("new_book created")
 
         # --- 매핑용 딕셔너리 ---
         old_to_new_chapter_map = {}
@@ -110,14 +117,14 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
             db.add(new_chapter)
             db.flush()
             old_to_new_chapter_map[ch.idx] = new_chapter.idx
-
+        print("chapters copied")
         # 4. 유닛(Units) 복사
         for un in original_book.units:
             new_unit = models.Unit(un_title=un.un_title, un_order=un.un_order, book_idx=new_book.idx, created_by=un.created_by)
             db.add(new_unit)
             db.flush()
             old_to_new_unit_map[un.idx] = new_unit.idx
-
+        print("units")
         # 5. 챕터-유닛 매핑(Chapter-Unit Mappings) 복사
         original_chapters_ids = old_to_new_chapter_map.keys()
         if original_chapters_ids:
@@ -128,15 +135,18 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
                 if new_ch_idx and new_un_idx:
                     db.add(models.ChapterUnitMapping(ch_idx=new_ch_idx, un_idx=new_un_idx, created_by=m.created_by))
 
+        print("mappings")
         # 6. 단어(Voca) 및 하위 데이터 복사
-        for voca in original_book.vocas:
+        for i, voca in enumerate(original_book.vocas):
+            print(f"voca {i+1}") # 일련번호 추가
             new_un_idx = old_to_new_unit_map.get(voca.un_idx)
             if not new_un_idx: continue # 매핑되는 유닛이 없으면 건너뜀
 
             new_voca = models.Voca(
                 vc_word=voca.vc_word, vt_idx=voca.vt_idx, vc_type=voca.vc_type, vc_root=voca.vc_root,
-                vc_unikey=f"copy_{uuid.uuid4()}", # 고유키는 새로 생성
-                vc_mp3_link=voca.vc_mp3_link, un_idx=new_un_idx, book_idx=new_book.idx, created_by=voca.created_by
+                vc_unikey=voca.vc_unikey,
+                un_idx=new_un_idx, book_idx=new_book.idx, vc_order=voca.vc_order,
+                created_by=voca.created_by
             )
             db.add(new_voca)
             db.flush()
@@ -148,6 +158,7 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
             
             # 6-2. 단어 뜻(Meanings) 및 하위 데이터 복사
             for meaning in voca.meanings:
+                print("meaning")
                 new_meaning = models.VocaMeaning(
                     mi_meaning=meaning.mi_meaning, mi_engmeaning=meaning.mi_engmeaning,
                     mi_order=meaning.mi_order, voca_idx=new_voca.idx, created_by=meaning.created_by
@@ -166,7 +177,7 @@ def copy_book_and_dependents(source_book_id: int, db: Session = Depends(database
                 # 6-2-2. 유의어/반의어(Synonyms/Antonyms) 복사
                 for sa in meaning.snyants:
                     db.add(models.MeaningSnyant(
-                        snyant_type=sa.snyant_type, snyant_word=sa.snyant_word,
+                        snyant_type=sa.snyant_type, snyant_word=sa.snyant_word, snyant_meaning=sa.snyant_meaning,
                         meaning_idx=new_meaning.idx, voca_idx=new_voca.idx, created_by=sa.created_by
                     ))
         
